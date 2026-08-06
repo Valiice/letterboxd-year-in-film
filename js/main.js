@@ -21,7 +21,7 @@
         kq.onsuccess = () => {
           if (kq.result === undefined) return res(undefined); // never fetched
           const vq = store.get(key);
-          vq.onsuccess = () => res(vq.result === undefined ? null : vq.result);
+          vq.onsuccess = () => res(vq.result);
           vq.onerror = () => rej(vq.error);
         };
         kq.onerror = () => rej(kq.error);
@@ -47,6 +47,12 @@
   function setError(msg) {
     const e = $('#setup-error');
     e.textContent = msg || ''; e.classList.toggle('hidden', !msg);
+    e.classList.remove('ok');
+  }
+  function setNote(msg) {
+    const e = $('#setup-error');
+    e.textContent = msg || ''; e.classList.toggle('hidden', !msg);
+    e.classList.add('ok');
   }
   function show(id) {
     for (const s of ['#setup', '#progress', '#stats']) $(s).classList.toggle('hidden', s !== id);
@@ -136,7 +142,7 @@
     $('#btn-clear-cache').addEventListener('click', async () => {
       const cache = new IdbCache(await openDb());
       await cache.clear();
-      setError('Film cache cleared.');
+      setNote('Film cache cleared.');
     });
     arm();
   });

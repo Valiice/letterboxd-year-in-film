@@ -20,7 +20,7 @@
       diaryEntries: entries.length,
       reviews: data.reviews.filter(r => inYear(r.watchedDate)).length,
       likes: data.likedFilms.filter(l => inYear(l.date)).length,
-      lists: data.lists.length && year === 'all' ? data.lists.length : 0,
+      lists: year === 'all' ? data.lists.length : 0,
     };
   }
 
@@ -99,7 +99,8 @@
   }
 
   // ---- TMDB-dependent stats ----
-  const fkey = (name, year) => `${(name || '').toLowerCase()}|${year || ''}`;
+  const LBParse = global.LBParse || (typeof require !== 'undefined' ? require('./parse.js') : null);
+  const fkey = (name, year) => LBParse.filmKey(name, year);
 
   function uniqueFilms(entries, filmIndex) {
     const seen = new Set(), out = [];
