@@ -1,5 +1,5 @@
 'use strict';
-const { CinemetaClient } = require('../js/cinemeta.js');
+const { CinemetaClient, normTitle } = require('../js/cinemeta.js');
 
 function fakeFetch(routes) {
   const calls = [];
@@ -262,5 +262,120 @@ const film = { key: 'parasite|2019', name: 'Parasite', year: 2019 };
     } finally {
       global.setTimeout = realSetTimeout;
     }
+  }
+  {
+    // normTitle: numeral normalisation and '&' handling, unit-tested directly.
+    if (normTitle('F1') !== 'f1') throw new Error("F1 should stay 'f1': " + normTitle('F1'));
+    if (normTitle('1917') !== '1917') throw new Error("1917 should stay '1917': " + normTitle('1917'));
+    if (normTitle('21 Jump Street') !== '21 jump street') throw new Error("21 should stay '21': " + normTitle('21 Jump Street'));
+    if (normTitle('The 1975 At Their Very Best') !== 'the 1975 at their very best') throw new Error("1975 should stay '1975': " + normTitle('The 1975 At Their Very Best'));
+    if (normTitle('The Fantastic 4: First Steps') !== 'the fantastic four first steps') throw new Error('4 should become four: ' + normTitle('The Fantastic 4: First Steps'));
+    if (normTitle('Fast & Furious') !== 'fast and furious') throw new Error("& should become 'and': " + normTitle('Fast & Furious'));
+    console.log('  ok   normTitle: numerals 1-20 spelled out standalone only, & becomes and');
+  }
+  {
+    // Subtitle-tolerant fallback (movie pass): F1 (2025) should match "F1: The
+    // Movie (2025)" even though the candidate has an extra subtitle, but must
+    // not be fooled by a same-prefix sequel with no year or a look-alike title.
+    const MOVIE_SEARCH = { metas: [
+      { id: 'tt101', imdb_id: 'tt101', type: 'movie', name: 'F1: The Movie', releaseInfo: '2025' },
+      { id: 'tt102', imdb_id: 'tt102', type: 'movie', name: 'F1: The Movie 2', releaseInfo: null },
+      { id: 'tt103', imdb_id: 'tt103', type: 'movie', name: 'F11 and Be There', releaseInfo: '2018' },
+    ] };
+    const DETAILS = { meta: { name: 'F1: The Movie', year: 2025, runtime: '155 min', genres: [], country: '', cast: [], director: [], writer: [], imdbRating: '7.3', poster: null } };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', MOVIE_SEARCH],
+      ['/meta/movie/tt101', DETAILS],
+    ]);
+    const c = new CinemetaClient({ cache: mapCache(), fetchFn: f, delayMs: 0 });
+    const f1Film = { key: 'f1|2025', name: 'F1', year: 2025 };
+    const out = await c.enrich([f1Film], null);
+    const meta = out.get('f1|2025');
+    if (!meta || meta.id !== 'tt101') throw new Error('F1 should match F1: The Movie (2025): ' + JSON.stringify(meta));
+    console.log('  ok   subtitle-tolerant fallback: F1 matches F1: The Movie (2025)');
+  }
+  {
+    // Numeral normalisation lets an exact-title match succeed at tier 1 (no
+    // fallback tier needed) when only digit-vs-word differs.
+    const MOVIE_SEARCH = { metas: [
+      { id: 'tt110', imdb_id: 'tt110', type: 'movie', name: 'The Fantastic Four: First Steps', releaseInfo: '2025' },
+    ] };
+    const DETAILS = { meta: { name: 'The Fantastic Four: First Steps', year: 2025, runtime: '115 min', genres: [], country: '', cast: [], director: [], writer: [], imdbRating: '7.7', poster: null } };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', MOVIE_SEARCH],
+      ['/meta/movie/tt110', DETAILS],
+    ]);
+    const c = new CinemetaClient({ cache: mapCache(), fetchFn: f, delayMs: 0 });
+    const fantasticFilm = { key: 'the fantastic 4 first steps|2025', name: 'The Fantastic 4: First Steps', year: 2025 };
+    const out = await c.enrich([fantasticFilm], null);
+    const meta = out.get('the fantastic 4 first steps|2025');
+    if (!meta || meta.id !== 'tt110') throw new Error('numeral/word variant should match: ' + JSON.stringify(meta));
+    console.log('  ok   numeral normalisation: The Fantastic 4 matches The Fantastic Four');
+  }
+  {
+    // Subtitle-tolerant fallback the other way round: query carries the extra
+    // subtitle, candidate is the bare title.
+    const MOVIE_SEARCH = { metas: [
+      { id: 'tt120', imdb_id: 'tt120', type: 'movie', name: 'Marco', releaseInfo: '2024' },
+      { id: 'tt121', imdb_id: 'tt121', type: 'movie', name: 'Marco the Magnificent', releaseInfo: '1965' },
+    ] };
+    const DETAILS = { meta: { name: 'Marco', year: 2024, runtime: '100 min', genres: [], country: '', cast: [], director: [], writer: [], imdbRating: '7.0', poster: null } };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', MOVIE_SEARCH],
+      ['/meta/movie/tt120', DETAILS],
+    ]);
+    const c = new CinemetaClient({ cache: mapCache(), fetchFn: f, delayMs: 0 });
+    const marcoFilm = { key: 'marco the invented truth|2024', name: 'Marco: The Invented Truth', year: 2024 };
+    const out = await c.enrich([marcoFilm], null);
+    const meta = out.get('marco the invented truth|2024');
+    if (!meta || meta.id !== 'tt120') throw new Error('Marco: The Invented Truth should match Marco (2024): ' + JSON.stringify(meta));
+    console.log('  ok   subtitle-tolerant fallback: Marco: The Invented Truth matches Marco (2024)');
+  }
+  {
+    // Guard: the year gate is EXACT, not +/-1. Neither candidate's year equals
+    // the query's year, so the subtitle-tolerant tier must reject both.
+    const MOVIE_SEARCH = { metas: [
+      { id: 'tt130', imdb_id: 'tt130', type: 'movie', name: 'Black Mirror', releaseInfo: '1981' },
+      { id: 'tt131', imdb_id: 'tt131', type: 'movie', name: 'Black Mirror: Bandersnatch', releaseInfo: '2018' },
+    ] };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', MOVIE_SEARCH],
+      ['/catalog/series/top/search=', { metas: [] }],
+    ]);
+    const cache = mapCache();
+    const c = new CinemetaClient({ cache, fetchFn: f, delayMs: 0 });
+    const demonFilm = { key: 'black mirror demon 79|2023', name: 'Black Mirror: Demon 79', year: 2023 };
+    const out = await c.enrich([demonFilm], null);
+    if (out.get(demonFilm.key) !== null) throw new Error('year gate should reject both candidates: ' + JSON.stringify(out.get(demonFilm.key)));
+    if (f.calls.some(u => u.includes('/meta/'))) throw new Error('should never fetch details when the year gate rejects: ' + JSON.stringify(f.calls));
+    console.log('  ok   guard: Black Mirror: Demon 79 stays null (exact year gate, not +/-1)');
+  }
+  {
+    // Guard: tier 2 must not apply to the series pass, so a TV episode does not
+    // fall back onto its parent series just because a title prefix matches.
+    const seriesFilm = { key: 'stranger things 5 the finale|2025', name: 'Stranger Things 5: The Finale', year: 2025 };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', { metas: [] }],
+      ['/catalog/series/top/search=', { metas: [{ id: 'tt140', imdb_id: 'tt140', type: 'series', name: 'Stranger Things', releaseInfo: '2016-2025' }] }],
+    ]);
+    const c = new CinemetaClient({ cache: mapCache(), fetchFn: f, delayMs: 0 });
+    const out = await c.enrich([seriesFilm], null);
+    if (out.get(seriesFilm.key) !== null) throw new Error('series pass must not use the subtitle-tolerant fallback: ' + JSON.stringify(out.get(seriesFilm.key)));
+    if (f.calls.some(u => u.includes('/meta/'))) throw new Error('should never fetch series details via the fallback tier: ' + JSON.stringify(f.calls));
+    console.log('  ok   guard: Stranger Things 5: The Finale stays null (tier 2 not applied to series pass)');
+  }
+  {
+    // Guard: tier 2 needs a year to gate on. With film.year null, an otherwise
+    // qualifying subtitle-differing candidate must not be picked.
+    const MOVIE_SEARCH = { metas: [{ id: 'tt150', imdb_id: 'tt150', type: 'movie', name: 'Some Title', releaseInfo: '2020' }] };
+    const f = fakeFetch([
+      ['/catalog/movie/top/search=', MOVIE_SEARCH],
+      ['/catalog/series/top/search=', { metas: [] }],
+    ]);
+    const c = new CinemetaClient({ cache: mapCache(), fetchFn: f, delayMs: 0 });
+    const noYearFilm = { key: 'some title subtitle|null', name: 'Some Title: Subtitle', year: null };
+    const out = await c.enrich([noYearFilm], null);
+    if (out.get(noYearFilm.key) !== null) throw new Error('null film.year should skip the fallback tier entirely: ' + JSON.stringify(out.get(noYearFilm.key)));
+    console.log('  ok   guard: null film.year skips the subtitle-tolerant fallback tier');
   }
 })().catch(e => { console.log('  FAIL cinemeta async: ' + e.message); process.exitCode = 1; });

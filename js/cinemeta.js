@@ -6,14 +6,34 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const REQUEST_TIMEOUT_MS = 10000;
 
-  function localNormTitle(s) {
-    return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-  }
-  // Reuse LBTmdb.normTitle if it's already loaded at runtime, so the two providers
-  // agree on title normalization; otherwise fall back to an identical local copy.
+  const NUMERAL_WORDS = {
+    1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight',
+    9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen',
+    15: 'fifteen', 16: 'sixteen', 17: 'seventeen', 18: 'eighteen', 19: 'nineteen', 20: 'twenty',
+  };
+
+  // Pure and exported so it's directly testable. Lowercases, strips diacritics,
+  // maps '&' to 'and', collapses non-alphanumerics to single spaces, and spells
+  // out standalone numerals 1-20 (never digits embedded in a longer token, e.g.
+  // 'f1', '1917', the '21' in '21 Jump Street', or a '1975' band name are left
+  // alone) so titles differing only by digit-vs-word or an ampersand align.
+  // Deliberately self-contained rather than deferring to LBTmdb.normTitle: on
+  // the real page tmdb.js loads before cinemeta.js, so that delegation would
+  // always be live and silently mask these enhancements in production.
   function normTitle(s) {
-    if (global.LBTmdb && typeof global.LBTmdb.normTitle === 'function') return global.LBTmdb.normTitle(s);
-    return localNormTitle(s);
+    let t = (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    t = t.replace(/&/g, ' and ');
+    t = t.replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!t) return t;
+    return t.split(' ').map(tok => NUMERAL_WORDS[tok] || tok).join(' ');
+  }
+
+  // The part of a title before its first ':', normalised. Used by the
+  // subtitle-tolerant fallback tier to compare 'F1' against 'F1: The Movie'.
+  function baseTitle(s) {
+    const raw = s || '';
+    const idx = raw.indexOf(':');
+    return normTitle(idx === -1 ? raw : raw.slice(0, idx));
   }
 
   function parseYear(releaseInfo) {
@@ -52,18 +72,37 @@
       return (json && json.metas) || [];
     }
 
-    // Only exact normalized-title matches are ever candidates: a title merely
-    // being the closest year is not enough (a corrupted match is worse than no
-    // match, since it silently poisons genre/country/runtime/hours stats).
-    _pickBest(results, name, year) {
+    // Tier 1: exact normalized-title matches. A title merely being the closest
+    // year is not enough (a corrupted match is worse than no match, since it
+    // silently poisons genre/country/runtime/hours stats).
+    //
+    // Tier 2 (movie pass only, gated by allowSubtitleFallback): tolerate a
+    // subtitle on either side ('F1' vs 'F1: The Movie'), but only when the
+    // candidate's parsed year equals film.year EXACTLY - not the +/-1 window
+    // tier 1 allows. This keeps a TV episode (e.g. 'Black Mirror: Demon 79')
+    // from matching its parent series just because the years happen to align,
+    // and is never applied to the series pass, where a series' multi-year
+    // releaseInfo (e.g. '2016-2025') would make the year gate too easy to pass.
+    _pickBest(results, name, year, allowSubtitleFallback) {
       const nt = normTitle(name);
       const exact = results.filter(r => normTitle(r.name) === nt);
-      if (!exact.length) return null;
-      if (year != null) {
-        const nearYear = exact.find(r => { const y = parseYear(r.releaseInfo); return y != null && Math.abs(y - year) <= 1; });
-        if (nearYear) return nearYear;
+      if (exact.length) {
+        if (year != null) {
+          const nearYear = exact.find(r => { const y = parseYear(r.releaseInfo); return y != null && Math.abs(y - year) <= 1; });
+          if (nearYear) return nearYear;
+        }
+        return exact[0]; // year metadata legitimately differs between sources
       }
-      return exact[0]; // year metadata legitimately differs between sources
+      if (allowSubtitleFallback && year != null) {
+        const baseName = baseTitle(name);
+        const candidate = results.find(r => {
+          const y = parseYear(r.releaseInfo);
+          if (y !== year) return false;
+          return normTitle(r.name) === baseName || baseTitle(r.name) === nt;
+        });
+        if (candidate) return candidate;
+      }
+      return null;
     }
 
     _mapMeta(d, imdbId, type) {
@@ -96,11 +135,11 @@
 
     async lookup(film) {
       let results = await this._search('movie', film.name);
-      let hit = this._pickBest(results, film.name, film.year);
+      let hit = this._pickBest(results, film.name, film.year, true);
       let type = 'movie';
       if (!hit) {
         results = await this._search('series', film.name);
-        hit = this._pickBest(results, film.name, film.year);
+        hit = this._pickBest(results, film.name, film.year, false);
         type = 'series';
       }
       if (!hit) return null;
@@ -140,7 +179,7 @@
     }
   }
 
-  const api = { CinemetaClient };
+  const api = { CinemetaClient, normTitle };
   if (typeof module !== 'undefined') module.exports = api;
   global.LBCinemeta = api;
 })(typeof window !== 'undefined' ? window : globalThis);
