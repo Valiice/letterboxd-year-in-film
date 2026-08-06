@@ -389,6 +389,15 @@
     return [...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }
 
+  function splitFilmsByPriority(data, filmIndex, year) {
+    const all = [...filmIndex.values()].filter(f => f.watched || f.inWatchlist);
+    if (year === 'all') return { priority: all, rest: [] };
+    const priority = uniqueFilms(entriesForYear(data, year), filmIndex);
+    const priorityKeys = new Set(priority.map(f => f.key));
+    const rest = all.filter(f => !priorityKeys.has(f.key));
+    return { priority, rest };
+  }
+
   function latestWatchedDate(data) {
     let latest = null;
     for (const e of data.diary) {
@@ -433,7 +442,7 @@
     };
   }
 
-  const api = { availableYears, entriesForYear, headerTotals, byWeek, weekdayCounts, averages, milestones, ratingsHistogram, breakdown, decades, watchlistAdded, yearOf, round1, uniqueFilms, hoursWatched, rankBy, genreStats, countryStats, languageStats, castCrew, highsLows, worldMap, watchlistUnseen, computeStats, tasteDivergence, yearOverYear, calendar, streaks, watchlistAging, reviewInsights, mostRewatched, tagCounts };
+  const api = { availableYears, entriesForYear, headerTotals, byWeek, weekdayCounts, averages, milestones, ratingsHistogram, breakdown, decades, watchlistAdded, yearOf, round1, uniqueFilms, hoursWatched, rankBy, genreStats, countryStats, languageStats, castCrew, highsLows, worldMap, watchlistUnseen, computeStats, tasteDivergence, yearOverYear, calendar, streaks, watchlistAging, reviewInsights, mostRewatched, tagCounts, splitFilmsByPriority };
   if (typeof module !== 'undefined') module.exports = api;
   global.LBStats = api;
 })(typeof window !== 'undefined' ? window : globalThis);

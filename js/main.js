@@ -42,7 +42,7 @@
   }
 
   // ---- state ----
-  let zipFile = null, appData = null, filmIndex = null, tmdbMap = null;
+  let zipFile = null, appData = null, filmIndex = null, tmdbMap = null, currentYear = null;
 
   function setError(msg) {
     const e = $('#setup-error');
@@ -85,25 +85,45 @@
         appData.diarySynthesized = true;
       }
       filmIndex = LBParse.buildFilmIndex(appData);
-      const films = [...filmIndex.values()].filter(f => f.watched || f.inWatchlist);
+      const year = currentYearDefault();
+      const { priority, rest } = LBStats.splitFilmsByPriority(appData, filmIndex, year);
       $('#progress h2').textContent = key ? 'Looking up your films on TMDB…' : 'Looking up your films…';
       show('#progress');
       const cache = new IdbCache(await openDb());
       const client = key
         ? new LBTmdb.TmdbClient({ apiKey: key, cache, fetchFn: (u) => fetch(u) })
         : new LBCinemeta.CinemetaClient({ cache, fetchFn: (u) => fetch(u) });
-      tmdbMap = await client.enrich(films, (done, total, film) => {
+      tmdbMap = await client.enrich(priority, (done, total, film) => {
         $('#progress-bar').style.width = `${done / total * 100}%`;
         $('#progress-label').textContent = `${done} / ${total} - ${film.name}`;
       });
       buildYearSelect();
-      renderYear(currentYearDefault());
+      renderYear(year);
       show('#stats');
+      enrichRestInBackground(client, rest);
     } catch (e) {
       show('#setup');
       if (e.message === 'TMDB_UNAUTHORIZED') setError('TMDB rejected that API key - double-check it (v3 auth key), or clear the key field to continue without one.');
       else if (e.message === 'CINEMETA_UNAVAILABLE') setError("Couldn't reach the film database - check your connection and try again.");
       else setError(e.message);
+    }
+  }
+
+  async function enrichRestInBackground(client, rest) {
+    if (!rest.length) return;
+    const status = $('#bg-status');
+    status.classList.remove('hidden');
+    status.textContent = `Loading ${rest.length} more films in the background…`;
+    try {
+      const restMap = await client.enrich(rest, (done, total) => {
+        status.textContent = `Loading ${total - done} more films in the background…`;
+      });
+      for (const [k, v] of restMap) tmdbMap.set(k, v);
+      status.textContent = '';
+      status.classList.add('hidden');
+      renderYear(currentYear, { keepScroll: true });
+    } catch (e) {
+      status.textContent = 'Some films could not be loaded - reload to try again.';
     }
   }
 
@@ -118,11 +138,12 @@
     sel.append(new Option('All time', 'all'));
     sel.onchange = () => renderYear(sel.value === 'all' ? 'all' : parseInt(sel.value, 10));
   }
-  function renderYear(year) {
+  function renderYear(year, opts) {
+    currentYear = year;
     const stats = LBStats.computeStats(appData, filmIndex, tmdbMap, year);
     stats._tmdb = tmdbMap;
     LBRender.renderAll(stats);
-    window.scrollTo(0, 0);
+    if (!(opts && opts.keepScroll)) window.scrollTo(0, 0);
   }
 
   // ---- wiring ----

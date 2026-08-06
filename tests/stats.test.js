@@ -263,6 +263,30 @@ test('computeStats over a synthesized diary reports the real film count, not zer
   eq(s.filmsGrid.length, 3);
 });
 
+test('splitFilmsByPriority puts the year films in priority, rest elsewhere', () => {
+  const { priority, rest } = S.splitFilmsByPriority(data, idx, 2024);
+  eq(priority.map(f => f.name).sort(), ['Love, Simon', 'Parasite']);
+  eq(rest.map(f => f.name).sort(), ['Dune: Part Two', 'Juno']);
+});
+
+test('splitFilmsByPriority has no film in both lists', () => {
+  const { priority, rest } = S.splitFilmsByPriority(data, idx, 2024);
+  const priorityKeys = new Set(priority.map(f => f.key));
+  ok(rest.every(f => !priorityKeys.has(f.key)));
+});
+
+test("splitFilmsByPriority puts everything in priority for 'all'", () => {
+  const { priority, rest } = S.splitFilmsByPriority(data, idx, 'all');
+  eq(rest, []);
+  eq(priority.map(f => f.name).sort(), [...idx.values()].filter(f => f.watched || f.inWatchlist).map(f => f.name).sort());
+});
+
+test('splitFilmsByPriority union equals the watched||inWatchlist selection', () => {
+  const expected = [...idx.values()].filter(f => f.watched || f.inWatchlist).map(f => f.key).sort();
+  const { priority, rest } = S.splitFilmsByPriority(data, idx, 2024);
+  eq([...priority, ...rest].map(f => f.key).sort(), expected);
+});
+
 test('computeStats exposes new keys', () => {
   const tmdbMap = new Map(Object.entries(META));
   const s = S.computeStats(data, idx, tmdbMap, 2024, '2024-03-01');

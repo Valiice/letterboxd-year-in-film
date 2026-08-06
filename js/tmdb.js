@@ -17,7 +17,7 @@
       this.cache = cache;
       this.fetchFn = fetchFn || (typeof fetch !== 'undefined' ? fetch.bind(global) : null);
       this.delayMs = delayMs == null ? 0 : delayMs;
-      this.concurrency = concurrency == null ? 8 : concurrency;
+      this.concurrency = concurrency == null ? 12 : concurrency;
       this._consecutiveUnavailable = 0;
     }
 

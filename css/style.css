@@ -77,6 +77,7 @@ svg .wk { fill: var(--green); } svg .axis { stroke: #24303c; }
 .pie-block .poster { margin: 0 auto; }
 /* year selector */
 .controls { text-align: center; margin: 8px 0 28px; }
+#bg-status { text-align: center; font-size: 12px; margin: -20px 0 28px; }
 .controls label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
 #year-select { appearance: none; -webkit-appearance: none; background-color: var(--card); color: var(--text-bright);
   border: 1px solid #456; border-radius: 4px; padding: 8px 34px 8px 14px; margin-left: 8px;
