@@ -93,9 +93,11 @@
       const client = key
         ? new LBTmdb.TmdbClient({ apiKey: key, cache, fetchFn: (u) => fetch(u) })
         : new LBCinemeta.CinemetaClient({ cache, fetchFn: (u) => fetch(u) });
+      const eta = makeEta(priority.length);
       tmdbMap = await client.enrich(priority, (done, total, film) => {
         $('#progress-bar').style.width = `${done / total * 100}%`;
         $('#progress-label').textContent = `${done} / ${total} - ${film.name}`;
+        $('#progress-eta').textContent = eta(done);
       });
       buildYearSelect();
       renderYear(year);
@@ -109,21 +111,43 @@
     }
   }
 
+  // Estimates time left from a rolling window of recent completions, so the
+  // figure tracks real throughput instead of a stale overall average.
+  function makeEta(total) {
+    const stamps = [];
+    return function tick(done) {
+      stamps.push(Date.now());
+      if (stamps.length > 40) stamps.shift();
+      if (stamps.length < 8) return '';
+      const span = (stamps[stamps.length - 1] - stamps[0]) / 1000;
+      if (span <= 0) return '';
+      const rate = (stamps.length - 1) / span;
+      const secs = Math.max(0, total - done) / rate;
+      if (!isFinite(secs) || secs <= 0) return '';
+      if (secs < 45) return 'less than a minute left';
+      const mins = Math.round(secs / 60);
+      return mins <= 1 ? 'about a minute left' : `about ${mins} min left`;
+    };
+  }
+
   async function enrichRestInBackground(client, rest) {
     if (!rest.length) return;
-    const status = $('#bg-status');
+    const status = $('#bg-status'), text = $('#bg-status-text'), fill = $('#bg-fill');
     status.classList.remove('hidden');
-    status.textContent = `Loading ${rest.length} more films in the background…`;
+    text.textContent = `Loading ${rest.length} more films`;
     try {
+      const eta = makeEta(rest.length);
       const restMap = await client.enrich(rest, (done, total) => {
-        status.textContent = `Loading ${total - done} more films in the background…`;
+        const left = eta(done);
+        text.textContent = `Loading ${total - done} more films${left ? ` - ${left}` : ''}`;
+        fill.style.width = `${done / total * 100}%`;
       });
       for (const [k, v] of restMap) tmdbMap.set(k, v);
-      status.textContent = '';
       status.classList.add('hidden');
       renderYear(currentYear, { keepScroll: true });
     } catch (e) {
-      status.textContent = 'Some films could not be loaded - reload to try again.';
+      text.textContent = 'Some films could not be loaded - reload to try again.';
+      fill.style.width = '0';
     }
   }
 
