@@ -38,6 +38,10 @@ button.ghost { background: transparent; color: var(--muted); border: 1px solid #
 #drop-zone.armed { border-color: var(--green); color: var(--text-bright); }
 .bar-track { background: var(--card); border-radius: 4px; height: 12px; overflow: hidden; }
 #progress-bar { background: var(--green); height: 100%; width: 0; transition: width .2s; }
+/* landing copy / FAQ */
+#about details { border-bottom: 1px solid #24303c; padding-bottom: 12px; margin: 0 0 12px; }
+#about details summary { color: var(--text-bright); font-weight: 600; }
+#about details summary:hover { color: var(--green); }
 /* header */
 .big-year { font: 700 96px/1 var(--font-num); color: var(--text-bright); text-align: center; }
 .byline { text-align: center; margin-bottom: 24px; }

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Year in Film - Letterboxd Stats</title>
+<title>Free Letterboxd Stats - Your Year in Film</title>
+<link rel="canonical" href="https://valiice.github.io/letterboxd-year-in-film/">
 <meta name="description" content="A free clone of Letterboxd's paid Year in Film stats page. Drop in your data export and get posters, charts, genres, cast and a world map back, all processed client-side in your browser.">
 <meta property="og:title" content="Year in Film - free Letterboxd stats">
 <meta property="og:description" content="A free clone of Letterboxd's paid Year in Film stats page. Drop in your data export and get posters, charts, genres, cast and a world map back, all processed client-side in your browser.">
@@ -16,6 +17,63 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='16' cy='32' r='14' fill='%2300e054'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%2340bcf4'/%3E%3Ccircle cx='48' cy='32' r='14' fill='%23ff8000'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Year in Film",
+      "url": "https://valiice.github.io/letterboxd-year-in-film/",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "Builds a Letterboxd year-in-review from your own data export: films watched, hours, streaks, top genres, directors and cast, a ratings histogram, a watch calendar and a world map. Runs entirely in your browser.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "isAccessibleForFree": true
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do I need Letterboxd Pro to see my stats?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not for this page. Pro unlocks the stats pages on letterboxd.com itself, but the underlying data is yours on any plan and can be exported from your account settings. This page turns that export into the same kind of year in review, in your browser." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I export my Letterboxd data?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Go to letterboxd.com/settings/data, click Export your data, and you will get a letterboxd zip file. Drop that zip in the box on this page. You never need to unzip it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my data uploaded anywhere?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The zip is opened and processed entirely in your browser and is never sent to a server. The only outbound requests are film titles, looked up to fetch posters, runtimes, genres and cast. Your ratings, reviews, diary dates and watchlist stay on your machine." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which years can I look at?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Every year in your diary, plus an all-time view, selectable from a dropdown. Letterboxd's own Year in Film only covers the year just gone." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need a TMDB API key?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Films are looked up for free with no signup by default. A key is optional and only adds spoken languages, extended crew such as composers and cinematographers, and more precise country data for the world map." }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does it take?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The page for your most recent year appears within about ten seconds. Older years keep loading in the background. Results are cached in your browser, so a second visit is instant." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why couldn't some of my films be matched?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A handful of entries have no film record to match against, most often TV episodes logged as films, live concert recordings, or very obscure shorts. They are listed at the bottom of your stats and left out of runtime, genre and cast totals rather than being guessed at." }
+        }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <header class="topbar"><span class="logo"><i class="dot g"></i><i class="dot b"></i><i class="dot o"></i></span> <strong>Year in Film</strong> <span class="muted">- free Letterboxd stats from your export</span></header>
@@ -44,6 +102,67 @@
     <button id="btn-start" disabled>Build my stats</button>
     <button id="btn-clear-cache" class="ghost">Clear film cache</button>
     <p id="setup-error" class="error hidden"></p>
+  </section>
+
+  <section id="about" class="panel">
+    <h2>What this is</h2>
+    <p>Letterboxd's <strong>Year in Film</strong> is the annual stats page that shows your most-watched
+      genres, directors, countries and rating habits. It is part of their paid Pro subscription. Your
+      viewing history, though, is downloadable from any account - free or Pro - as a data export.</p>
+    <p>This page reads that export and rebuilds a year in review from it: films watched, hours on screen,
+      longest streak, top genres, directors and actors, a ratings histogram, a watch calendar, a world map
+      of where your films came from, how your ratings compare to the average, and a year-by-year trend.
+      No account, no signup, and nothing leaves your computer.</p>
+
+    <h3>Frequently asked</h3>
+
+    <details>
+      <summary>Do I need Letterboxd Pro to see my stats?</summary>
+      <p>Not for this page. Pro unlocks the stats pages on letterboxd.com itself, but the underlying data
+        is yours on any plan and can be exported from your account settings. This page turns that export
+        into the same kind of year in review, in your browser.</p>
+    </details>
+
+    <details>
+      <summary>How do I export my Letterboxd data?</summary>
+      <p>Go to <a href="https://letterboxd.com/settings/data/" target="_blank" rel="noopener">letterboxd.com/settings/data</a>,
+        click "Export your data", and you will get a <code>letterboxd-*.zip</code> file. Drop that zip in
+        the box above. You never need to unzip it.</p>
+    </details>
+
+    <details>
+      <summary>Is my data uploaded anywhere?</summary>
+      <p>No. The zip is opened and processed entirely in your browser - it is never sent to a server, and
+        there is no server to send it to; this is a static page. The only outbound requests are film
+        <em>titles</em>, looked up to fetch posters, runtimes, genres and cast. Your ratings, reviews,
+        diary dates and watchlist stay on your machine.</p>
+    </details>
+
+    <details>
+      <summary>Which years can I look at?</summary>
+      <p>Every year in your diary, plus an all-time view. Pick from the dropdown once your stats load.
+        Letterboxd's own Year in Film only covers the year just gone.</p>
+    </details>
+
+    <details>
+      <summary>Do I need a TMDB API key?</summary>
+      <p>No. Films are looked up for free with no signup by default. A key is optional and only adds
+        spoken languages, extended crew such as composers and cinematographers, and more precise country
+        data for the world map.</p>
+    </details>
+
+    <details>
+      <summary>How long does it take?</summary>
+      <p>The page for your most recent year appears within about ten seconds. Older years keep loading in
+        the background while you read. Results are cached in your browser, so a second visit is instant.</p>
+    </details>
+
+    <details>
+      <summary>Why couldn't some of my films be matched?</summary>
+      <p>A handful of entries have no film record to match against - most often TV episodes logged as
+        films, live concert recordings, or very obscure shorts. They are listed at the bottom of your
+        stats and are left out of runtime, genre and cast totals rather than being guessed at.</p>
+    </details>
   </section>
 
   <section id="progress" class="panel hidden">

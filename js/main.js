@@ -56,6 +56,7 @@
   }
   function show(id) {
     for (const s of ['#setup', '#progress', '#stats']) $(s).classList.toggle('hidden', s !== id);
+    $('#about').classList.toggle('hidden', id !== '#setup'); // intro copy belongs to the landing view only
   }
   function arm() {
     $('#btn-start').disabled = !zipFile;
