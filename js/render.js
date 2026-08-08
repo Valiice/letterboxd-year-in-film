@@ -363,9 +363,25 @@
     c.append(g);
   }
 
-  function renderMap(stats) {
-    const svg = document.getElementById('worldmap');
-    if (!svg) return;
+  // The map is 1.2 MB of path data, so it is kept out of the page and pulled in the first
+  // time a map is actually drawn. A script tag rather than fetch, so opening the page
+  // straight off disk (file://) still works.
+  let worldMapLoad = null;
+  function loadWorldMap() {
+    if (global.LBWorldMap) return Promise.resolve(global.LBWorldMap);
+    if (!worldMapLoad) {
+      worldMapLoad = new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'js/worldmap.js';
+        s.onload = () => global.LBWorldMap ? res(global.LBWorldMap) : rej(new Error('worldmap.js exported nothing'));
+        s.onerror = () => rej(new Error('could not load js/worldmap.js'));
+        document.head.append(s);
+      });
+    }
+    return worldMapLoad;
+  }
+
+  function paintMap(svg, stats) {
     const max = Math.max(1, ...stats.map.values());
     for (const p of svg.querySelectorAll('path')) {
       const code = (p.id || '').toUpperCase();
@@ -379,6 +395,20 @@
         p.append(t);
       }
     }
+  }
+
+  function renderMap(stats) {
+    const holder = document.getElementById('worldmap-holder');
+    if (!holder) return;
+    const drawn = document.getElementById('worldmap');
+    if (drawn) return paintMap(drawn, stats);
+    toggleSection('#s-map', true);
+    loadWorldMap().then(m => {
+      holder.innerHTML = m.svg;
+      const svg = document.getElementById('worldmap');
+      // Paint the year showing now - the user may have switched while this was loading.
+      if (svg) paintMap(svg, current || stats);
+    }).catch(() => toggleSection('#s-map', false));
   }
 
   function renderWatchlist(stats) {
